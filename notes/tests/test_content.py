@@ -16,7 +16,7 @@ class TestContent(TestCase):
         cls.form2 = NoteForm(data={
             'title': 'Это тест',
             'text': 'test',
-            'slug': 'Проверим большой слаг 123' * 200
+            'slug': 'Проверим большой слаг 123' * 100
         })
         # Создадим заметки для автора и для других пользователей
         cls.author = User.objects.create(username='Lion-T')
@@ -34,7 +34,7 @@ class TestContent(TestCase):
     def test_form(self):
         """Проверяет поля формы"""
         self.assertEqual(self.form.is_valid(), True)
-        # Форма с таким слагом не должна пройти
+        # Форма2 с таким слагом не должна пройти
         self.assertEqual(self.form2.is_valid(), False)
 
         self.assertEqual(self.form.cleaned_data['title'], 'Это тест')
