@@ -45,7 +45,7 @@ class TestRoutes(TestCase):
                 self.assertRedirects(response, redirect_url)
 
     def test_availability_for_note_edit_and_delete(self):
-        """Тестирует доступ пользователей к своим и чужим ресурсам"""
+        """Тестирует доступ к своим и чужим ресурсам"""
         users_statuses = (
             (self.author, HTTPStatus.OK),
             (self.another_user, HTTPStatus.NOT_FOUND),
@@ -57,3 +57,12 @@ class TestRoutes(TestCase):
                     url = reverse(reverse_name, args=args)
                     response = self.client.get(url)
                     self.assertEqual(response.status_code, status)
+
+    def test_another_user_for_some_pages(self):
+        """Тестирует доступ пользователя к страницам"""
+        self.client.force_login(self.another_user)
+        for reverse_name, args in self.urls[:3]:
+            with self.subTest(user=self.another_user, name=reverse_name):
+                url = reverse(reverse_name, args=args)
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, HTTPStatus.OK)

@@ -26,22 +26,22 @@ class NoteHandlingTest(TestCase):
             'text': 'Новый Текст',
             'slug': cls.note.slug
         }
-    
 
     def test_anonymous_user_create_note(self):
         """Проверяет, может ли аноним создать заметку"""
         Note.objects.all().delete()
-         # Создать заметку
+        # Создать заметку
         self.client.post(reverse('notes:add'))
         notes_count = Note.objects.count()
         self.assertEqual(notes_count, 0)
 
     def test_another_author_edit_and_delete_note(self):
         """Проверяет, что пользователь не может редактировать
-        чужие заметки и удалять их."""
+        чужие заметки и удалять их.
+        """
         self.client.force_login(self.another_user)
         response = self.client.post(reverse(
-            'notes:edit', 
+            'notes:edit',
             args=(self.note.slug,)
         ),
             data=self.new_data_of_note
@@ -59,10 +59,11 @@ class NoteHandlingTest(TestCase):
 
     def test_author_edit_and_delete_note(self):
         """Проверяет, что автор может редактировать
-        свои заметки и удалять их."""
+        свои заметки и удалять их.
+        """
         self.client.force_login(self.author)
         response = self.client.post(reverse(
-            'notes:edit', 
+            'notes:edit',
             args=(self.note.slug,)
         ),
             data=self.new_data_of_note
