@@ -5,6 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from notes.models import Note
+from notes.forms import WARNING
 
 User = get_user_model()
 
@@ -24,16 +25,32 @@ class NoteHandlingTest(TestCase):
         cls.new_data_of_note = {
             'title': 'Новый Заголовок',
             'text': 'Новый Текст',
-            'slug': cls.note.slug
+            'slug': 'new-slug'
         }
 
     def test_anonymous_user_create_note(self):
         """Проверяет, может ли аноним создать заметку"""
-        Note.objects.all().delete()
-        # Создать заметку
-        self.client.post(reverse('notes:add'))
-        notes_count = Note.objects.count()
-        self.assertEqual(notes_count, 0)
+        Note.objects.all().delete()  # Почистимся от общей фикстуры
+        response = self.client.post(
+            reverse('notes:add'), data=self.new_data_of_note
+        )
+        # Проверим редирект на логин
+        expected_url = f'{reverse("users:login")}?next={reverse("notes:add")}'
+        self.assertRedirects(response, expected_url)
+        # Проверим, что база пустая
+        self.assertEqual(Note.objects.count(), 0)
+
+    def test_login_user_create_note(self):
+        """Проверяет, может ли пользователь создать заметку"""
+        Note.objects.all().delete()  # Почистимся от общей фикстуры
+        self.client.force_login(self.another_user)
+        response = self.client.post(
+            reverse('notes:add'), data=self.new_data_of_note
+        )
+        # Проверяем, что сработал редирект.
+        self.assertRedirects(response, reverse('notes:success'))
+        # Проверим, что появилась запись
+        self.assertEqual(Note.objects.count(), 1)
 
     def test_another_author_edit_and_delete_note(self):
         """Проверяет, что пользователь не может редактировать
@@ -49,9 +66,10 @@ class NoteHandlingTest(TestCase):
         # Проверим, что возвращается 404
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
         # Проверим, что заметка не изменилась
-        is_edited_note = Note.objects.get(slug=self.note.slug)
+        is_edited_note = Note.objects.get()
         self.assertEqual(is_edited_note.text, self.note.text)
         self.assertEqual(is_edited_note.title, self.note.title)
+        self.assertEqual(is_edited_note.slug, self.note.slug)
 
         # Теперь проверим, что её нельзя удалить
         self.client.delete(reverse('notes:delete', args=(self.note.slug,)))
@@ -71,10 +89,25 @@ class NoteHandlingTest(TestCase):
         # Проверяем, что сработал редирект.
         self.assertRedirects(response, reverse('notes:success'))
         # Проверим, что заметка изменилась
-        is_edited_note = Note.objects.get(slug=self.note.slug)
+        is_edited_note = Note.objects.get()
         self.assertEqual(is_edited_note.text, self.new_data_of_note['text'])
         self.assertEqual(is_edited_note.title, self.new_data_of_note['title'])
+        self.assertEqual(is_edited_note.slug, self.new_data_of_note['slug'])
 
         # Теперь проверим, что запись можно удалить
-        self.client.delete(reverse('notes:delete', args=(self.note.slug,)))
+        self.client.delete(
+            reverse('notes:delete', args=(is_edited_note.slug,))
+        )
         self.assertEqual(Note.objects.count(), 0)
+
+    def test_not_unique_slug(self):
+        """Не может быть двух записей с одинаковым slug"""
+        url = reverse('notes:add')
+        self.new_data_of_note['slug'] = self.note.slug
+        self.client.force_login(self.author)
+        response = self.client.post(url, data=self.new_data_of_note)
+        self.assertFormError(
+            response, 'form', 'slug', errors=(self.note.slug + WARNING)
+        )
+        # Заметка должна остаться одна
+        assert Note.objects.count() == 1
