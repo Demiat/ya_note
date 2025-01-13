@@ -59,4 +59,4 @@ def form_data():
         'title': 'Новый заголовок',
         'text': 'Новый текст',
         'slug': 'new-slug'
-    } 
+    }

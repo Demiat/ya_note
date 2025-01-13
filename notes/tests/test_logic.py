@@ -11,6 +11,12 @@ User = get_user_model()
 
 
 class NoteHandlingTest(TestCase):
+    """Тесты для работы с заметками"""
+
+    ADD_NOTE_PATH = reverse('notes:add')
+    DEL_NOTE_PATH = 'notes:delete'
+    EDIT_NOTE_PATH = 'notes:edit'
+    SUCCESS_NOTE_PATH = reverse('notes:success')
 
     @classmethod
     def setUpTestData(cls):
@@ -32,10 +38,10 @@ class NoteHandlingTest(TestCase):
         """Проверяет, может ли аноним создать заметку"""
         Note.objects.all().delete()  # Почистимся от общей фикстуры
         response = self.client.post(
-            reverse('notes:add'), data=self.new_data_of_note
+            self.ADD_NOTE_PATH, data=self.new_data_of_note
         )
         # Проверим редирект на логин
-        expected_url = f'{reverse("users:login")}?next={reverse("notes:add")}'
+        expected_url = f'{reverse("users:login")}?next={self.ADD_NOTE_PATH}'
         self.assertRedirects(response, expected_url)
         # Проверим, что база пустая
         self.assertEqual(Note.objects.count(), 0)
@@ -45,10 +51,10 @@ class NoteHandlingTest(TestCase):
         Note.objects.all().delete()  # Почистимся от общей фикстуры
         self.client.force_login(self.another_user)
         response = self.client.post(
-            reverse('notes:add'), data=self.new_data_of_note
+            self.ADD_NOTE_PATH, data=self.new_data_of_note
         )
         # Проверяем, что сработал редирект.
-        self.assertRedirects(response, reverse('notes:success'))
+        self.assertRedirects(response, self.SUCCESS_NOTE_PATH)
         # Проверим, что появилась запись
         self.assertEqual(Note.objects.count(), 1)
 
@@ -58,7 +64,7 @@ class NoteHandlingTest(TestCase):
         """
         self.client.force_login(self.another_user)
         response = self.client.post(reverse(
-            'notes:edit',
+            self.EDIT_NOTE_PATH,
             args=(self.note.slug,)
         ),
             data=self.new_data_of_note
@@ -72,7 +78,7 @@ class NoteHandlingTest(TestCase):
         self.assertEqual(is_edited_note.slug, self.note.slug)
 
         # Теперь проверим, что её нельзя удалить
-        self.client.delete(reverse('notes:delete', args=(self.note.slug,)))
+        self.client.delete(reverse(self.DEL_NOTE_PATH, args=(self.note.slug,)))
         self.assertEqual(Note.objects.count(), 1)
 
     def test_author_edit_and_delete_note(self):
@@ -81,13 +87,13 @@ class NoteHandlingTest(TestCase):
         """
         self.client.force_login(self.author)
         response = self.client.post(reverse(
-            'notes:edit',
+            self.EDIT_NOTE_PATH,
             args=(self.note.slug,)
         ),
             data=self.new_data_of_note
         )
         # Проверяем, что сработал редирект.
-        self.assertRedirects(response, reverse('notes:success'))
+        self.assertRedirects(response, self.SUCCESS_NOTE_PATH)
         # Проверим, что заметка изменилась
         is_edited_note = Note.objects.get()
         self.assertEqual(is_edited_note.text, self.new_data_of_note['text'])
@@ -96,16 +102,18 @@ class NoteHandlingTest(TestCase):
 
         # Теперь проверим, что запись можно удалить
         self.client.delete(
-            reverse('notes:delete', args=(is_edited_note.slug,))
+            reverse(self.DEL_NOTE_PATH, args=(is_edited_note.slug,))
         )
         self.assertEqual(Note.objects.count(), 0)
 
     def test_not_unique_slug(self):
         """Не может быть двух записей с одинаковым slug"""
-        url = reverse('notes:add')
         self.new_data_of_note['slug'] = self.note.slug
         self.client.force_login(self.author)
-        response = self.client.post(url, data=self.new_data_of_note)
+        response = self.client.post(
+            self.ADD_NOTE_PATH,
+            data=self.new_data_of_note
+        )
         self.assertFormError(
             response, 'form', 'slug', errors=(self.note.slug + WARNING)
         )
